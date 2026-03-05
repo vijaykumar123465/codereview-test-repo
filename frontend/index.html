@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid Code Intelligence Agent - Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.8); }
+        }
+        .scanning { animation: pulse-glow 2s infinite; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white min-h-screen">
+    <div class="max-w-7xl mx-auto p-6">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                🛡️ Hybrid Code Intelligence Agent
+            </h1>
+            <p class="text-gray-400">Real-time Code Governance & Security Platform</p>
+            <div class="mt-4 flex items-center gap-4">
+                <div id="connectionStatus" class="flex items-center gap-2">
+                    <div class="w-3 h-3 bg-gray-500 rounded-full"></div>
+                    <span class="text-sm">Connecting...</span>
+                </div>
+                <button onclick="testConnection()" class="text-sm px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 rounded">
+                    Test Connection
+                </button>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 mb-6">
+            <h2 class="text-xl font-bold mb-4">🎮 Control Panel</h2>
+            <div class="grid grid-cols-1 gap-4">
+                <!-- Method 1: File Path -->
+                <div>
+                    <label class="block text-sm font-semibold mb-2">Method 1: Enter File Path</label>
+                    <input type="text" id="filePath" value="test_files/test_code.py" 
+                           placeholder="e.g., C:\projects\myapp\main.py or /home/user/project/app.py"
+                           class="w-full px-4 py-2 bg-white/5 border border-white/20 rounded focus:outline-none focus:border-blue-400">
+                    <p class="text-xs text-gray-400 mt-1">Tip: Use absolute path for best results (e.g., C:\full\path\to\file.py)</p>
+                </div>
+                
+                <!-- Method 2: File Upload -->
+                <div>
+                    <label class="block text-sm font-semibold mb-2">Method 2: Upload File from Computer</label>
+                    <div class="flex gap-2">
+                        <input type="file" id="fileUpload" accept=".py,.js,.java,.cpp,.c,.h" 
+                               class="flex-1 px-4 py-2 bg-white/5 border border-white/20 rounded focus:outline-none focus:border-blue-400">
+                        <button onclick="scanUploadedFile()" id="uploadBtn"
+                                class="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-lg font-semibold">
+                            📤 Upload & Scan
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">Supported: .py, .js, .java, .cpp, .c, .h</p>
+                </div>
+                
+                <!-- Scan Button -->
+                <div>
+                    <button onclick="triggerScan()" id="scanBtn"
+                            class="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-semibold transition-all shadow-lg">
+                        🔍 Scan Code (Method 1)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Engine Status -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6" id="engineStatus">
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                <h3 class="font-semibold text-lg mb-2">🛡️ SAST Engine</h3>
+                <div class="text-sm text-gray-400">Static Analysis</div>
+                <div class="mt-3 text-xs text-gray-500">Ready</div>
+            </div>
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                <h3 class="font-semibold text-lg mb-2">🧠 Governance</h3>
+                <div class="text-sm text-gray-400">AI Policy Check</div>
+                <div class="mt-3 text-xs text-gray-500">Ready</div>
+            </div>
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                <h3 class="font-semibold text-lg mb-2">⚡ DAST Engine</h3>
+                <div class="text-sm text-gray-400">Runtime Analysis</div>
+                <div class="mt-3 text-xs text-gray-500">Ready</div>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div id="resultsPanel" class="hidden">
+            <!-- Verdict Banner -->
+            <div id="verdictBanner" class="rounded-xl p-6 border-2 mb-6"></div>
+
+            <!-- Findings -->
+            <div id="findingsContainer"></div>
+
+            <!-- Auto-Fix Panel -->
+            <div id="autoFixPanel" class="hidden"></div>
+        </div>
+
+        <!-- Logs -->
+        <div class="bg-black/30 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold">📋 Activity Log</h3>
+                <button onclick="clearLogs()" class="text-xs px-3 py-1 bg-red-500/20 hover:bg-red-500/30 rounded">
+                    Clear
+                </button>
+            </div>
+            <div id="logContainer" class="font-mono text-xs text-green-400 h-64 overflow-y-auto space-y-1">
+                <div>System initialized. Waiting for backend connection...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:8000';
+        let ws = null;
+        let currentResults = null;
+
+        // Log helper
+        function log(message, type = 'info') {
+            const container = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                info: 'text-green-400',
+                error: 'text-red-400',
+                warn: 'text-yellow-400',
+                success: 'text-blue-400'
+            };
+            const entry = document.createElement('div');
+            entry.className = colors[type] || colors.info;
+            entry.textContent = `[${timestamp}] ${message}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Test backend connection
+        async function testConnection() {
+            log('Testing connection to backend...', 'info');
+            try {
+                const response = await fetch(`${BACKEND_URL}/`);
+                const data = await response.json();
+                log(`✅ Backend connected: ${data.status}`, 'success');
+                updateConnectionStatus(true);
+            } catch (error) {
+                log(`❌ Backend unreachable: ${error.message}`, 'error');
+                updateConnectionStatus(false);
+            }
+        }
+
+        // Debug path resolution
+        async function debugPath() {
+            const filePath = document.getElementById('filePath').value || 'test_files/test_code.py';
+            
+            log('🔍 Running path debug...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/debug/path?path=${encodeURIComponent(filePath)}`);
+                const data = await response.json();
+                
+                console.log('=== PATH DEBUG INFO ===', data);
+                
+                let msg = '🔍 PATH DEBUG RESULTS:\n\n';
+                msg += `Input: ${data.input_path}\n`;
+                msg += `Current Dir: ${data.current_directory}\n`;
+                msg += `Exists: ${data.exists}\n`;
+                msg += `Is File: ${data.is_file}\n`;
+                msg += `Absolute: ${data.absolute}\n`;
+                msg += `Normalized: ${data.normalized}\n\n`;
+                
+                if (data.directory_contents) {
+                    msg += `Backend directory contains:\n`;
+                    data.directory_contents.slice(0, 10).forEach(f => msg += `  - ${f}\n`);
+                }
+                
+                if (data.test_files_contents) {
+                    msg += `\ntest_files/ contains:\n`;
+                    data.test_files_contents.forEach(f => msg += `  - ${f}\n`);
+                }
+                
+                if (data.test_files_parent_contents) {
+                    msg += `\n../test_files/ contains:\n`;
+                    data.test_files_parent_contents.forEach(f => msg += `  - ${f}\n`);
+                }
+                
+                alert(msg);
+                log('Debug info logged to console', 'success');
+                
+            } catch (error) {
+                log(`Debug failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Update connection status indicator
+        function updateConnectionStatus(connected) {
+            const statusDiv = document.getElementById('connectionStatus');
+            const dot = statusDiv.querySelector('div');
+            const text = statusDiv.querySelector('span');
+            
+            if (connected) {
+                dot.className = 'w-3 h-3 bg-green-500 rounded-full animate-pulse';
+                text.textContent = 'Connected';
+            } else {
+                dot.className = 'w-3 h-3 bg-red-500 rounded-full';
+                text.textContent = 'Disconnected';
+            }
+        }
+
+        // Initialize WebSocket
+        function initWebSocket() {
+            try {
+                ws = new WebSocket('ws://localhost:8000/ws');
+                
+                ws.onopen = () => {
+                    log('🔌 WebSocket connected', 'success');
+                    updateConnectionStatus(true);
+                };
+                
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    log(`📨 Received: ${data.type}`, 'info');
+                    
+                    if (data.type === 'scan_complete') {
+                        displayResults(data.data);
+                    } else if (data.type === 'critical_alert') {
+                        handleCriticalAlert(data.data);
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    log('❌ WebSocket error', 'error');
+                };
+                
+                ws.onclose = () => {
+                    log('🔌 WebSocket disconnected', 'warn');
+                    updateConnectionStatus(false);
+                    // Reconnect after 3 seconds
+                    setTimeout(initWebSocket, 3000);
+                };
+            } catch (error) {
+                log(`WebSocket init failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Trigger code scan
+        async function triggerScan() {
+            let filePath = document.getElementById('filePath').value.trim();
+            const btn = document.getElementById('scanBtn');
+            
+            if (!filePath) {
+                alert('⚠️ Please enter a file path\n\nExamples:\n• C:\\projects\\myapp\\main.py\n• /home/user/project/app.py\n• test_files/test_code.py');
+                return;
+            }
+            
+            log(`🔍 Starting scan: ${filePath}`, 'info');
+            log(`   Sending path to backend...`, 'info');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Scanning...';
+            btn.classList.add('scanning');
+            
+            document.getElementById('resultsPanel').classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/scan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_path: filePath })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Scan completed for: ${data.file}`, 'success');
+                    displayResults(data);
+                } else {
+                    const error = await response.json();
+                    log(`❌ File not found: ${error.error}`, 'error');
+                    
+                    // Build detailed error message
+                    let errorMsg = `❌ FILE NOT FOUND\n\n`;
+                    errorMsg += `Path you entered:\n${filePath}\n\n`;
+                    errorMsg += `Backend checked these locations:\n`;
+                    
+                    if (error.tried_paths && error.tried_paths.length > 0) {
+                        error.tried_paths.forEach((p, i) => {
+                            errorMsg += `\n${i + 1}. ${p}`;
+                        });
+                    }
+                    
+                    errorMsg += `\n\nCurrent backend directory:\n${error.cwd || 'Unknown'}`;
+                    errorMsg += `\n\n💡 TIPS:`;
+                    errorMsg += `\n• Use ABSOLUTE path: C:\\full\\path\\to\\file.py`;
+                    errorMsg += `\n• Or place file in: test_files/`;
+                    errorMsg += `\n• Or use Method 2: File Upload`;
+                    errorMsg += `\n\nCheck backend terminal for detailed logs!`;
+                    
+                    alert(errorMsg);
+                    
+                    // Also log all tried paths
+                    if (error.tried_paths) {
+                        error.tried_paths.forEach((p, i) => {
+                            log(`   [${i + 1}] Tried: ${p}`, 'warn');
+                        });
+                    }
+                }
+            } catch (error) {
+                log(`❌ Connection error: ${error.message}`, 'error');
+                alert(`❌ BACKEND CONNECTION FAILED\n\nCannot connect to: ${BACKEND_URL}\n\nMake sure:\n1. Backend is running: python backend/main.py\n2. Backend is on http://localhost:8000\n3. No firewall blocking\n\nError: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔍 Scan Code (Method 1)';
+                btn.classList.remove('scanning');
+            }
+        }
+
+        // Scan uploaded file
+        async function scanUploadedFile() {
+            const fileInput = document.getElementById('fileUpload');
+            const btn = document.getElementById('uploadBtn');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('⚠️ Please select a file first\n\nClick "Choose File" and select a Python file (.py)');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            
+            // Validate file type
+            const validExtensions = ['.py', '.js', '.java', '.cpp', '.c', '.h'];
+            const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+            
+            if (!validExtensions.includes(fileExt)) {
+                alert(`⚠️ Unsupported file type: ${fileExt}\n\nSupported types:\n${validExtensions.join(', ')}`);
+                return;
+            }
+            
+            log(`📤 Uploading file: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`, 'info');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Uploading...';
+            
+            document.getElementById('resultsPanel').classList.add('hidden');
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                log(`   Sending to ${BACKEND_URL}/scan-upload...`, 'info');
+                
+                const response = await fetch(`${BACKEND_URL}/scan-upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ File uploaded and scanned: ${data.file}`, 'success');
+                    if (data.scan_path) {
+                        log(`   Scanned at: ${data.scan_path}`, 'info');
+                    }
+                    displayResults(data);
+                } else {
+                    const error = await response.json();
+                    log(`❌ Upload failed: ${error.error}`, 'error');
+                    alert(`❌ UPLOAD FAILED\n\n${error.error}\n\nCheck backend terminal for details.`);
+                }
+            } catch (error) {
+                log(`❌ Upload error: ${error.message}`, 'error');
+                alert(`❌ UPLOAD ERROR\n\nCannot upload to: ${BACKEND_URL}/scan-upload\n\nError: ${error.message}\n\nMake sure backend is running!`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📤 Upload & Scan';
+            }
+        }
+
+        // Display scan results
+        function displayResults(data) {
+            currentResults = data;
+            const panel = document.getElementById('resultsPanel');
+            panel.classList.remove('hidden');
+            
+            // Verdict banner
+            const verdict = data.verdict || {};
+            const isBlocked = verdict.decision === 'BLOCK';
+            const verdictBanner = document.getElementById('verdictBanner');
+            
+            verdictBanner.className = `rounded-xl p-6 border-2 mb-6 ${
+                isBlocked ? 'bg-red-500/10 border-red-500/50' : 'bg-green-500/10 border-green-500/50'
+            }`;
+            
+            verdictBanner.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="text-4xl">${isBlocked ? '🚫' : '✅'}</div>
+                        <div>
+                            <h2 class="text-2xl font-bold">${verdict.decision || 'UNKNOWN'}</h2>
+                            <p class="text-gray-300">${verdict.reason || 'No details available'}</p>
+                        </div>
+                    </div>
+                    <div class="text-right px-6 py-3 rounded-lg ${isBlocked ? 'bg-red-500/20' : 'bg-green-500/20'}">
+                        <div class="text-sm text-gray-300">Severity</div>
+                        <div class="text-xl font-bold">${verdict.severity || 'UNKNOWN'}</div>
+                    </div>
+                </div>
+            `;
+            
+            // Findings
+            displayFindings(data.engines || {});
+            
+            log(`📊 Results displayed: ${verdict.decision}`, 'success');
+        }
+
+        // Display findings from all engines
+        function displayFindings(engines) {
+            const container = document.getElementById('findingsContainer');
+            container.innerHTML = '';
+            
+            const engineConfigs = [
+                { name: 'sast', title: 'SAST Findings', icon: '🛡️', color: 'blue' },
+                { name: 'governance', title: 'Governance Violations', icon: '🧠', color: 'purple' },
+                { name: 'dast', title: 'Runtime Issues', icon: '⚡', color: 'yellow' }
+            ];
+            
+            engineConfigs.forEach(config => {
+                const engineData = engines[config.name];
+                if (!engineData) return;
+                
+                const findings = engineData.findings || [];
+                const hasIssues = findings.length > 0;
+                
+                const card = document.createElement('div');
+                card.className = 'bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/20 mb-6';
+                
+                let findingsHTML = '';
+                findings.forEach((finding, i) => {
+                    const severityColor = {
+                        'CRITICAL': 'red',
+                        'HIGH': 'orange',
+                        'MEDIUM': 'yellow',
+                        'LOW': 'blue'
+                    }[finding.severity?.toUpperCase()] || 'gray';
+                    
+                    findingsHTML += `
+                        <div class="bg-${severityColor}-500/10 border border-${severityColor}-500/30 rounded-lg p-4 mb-3">
+                            <div class="flex items-start justify-between mb-2">
+                                <div class="font-semibold text-${severityColor}-300">
+                                    ${finding.rule || finding.issue || 'Unknown Issue'}
+                                </div>
+                                ${finding.line ? `<span class="text-xs bg-${severityColor}-500/20 px-2 py-1 rounded">Line ${finding.line}</span>` : ''}
+                            </div>
+                            <p class="text-sm text-gray-300 mb-2">${finding.message || finding.details || ''}</p>
+                            ${finding.suggestion ? `
+                                <div class="bg-green-500/10 border border-green-500/30 rounded p-2 text-sm mt-2">
+                                    <div class="text-green-300 font-semibold mb-1">💡 Suggested Fix:</div>
+                                    <code class="text-xs text-gray-300">${finding.suggestion}</code>
+                                </div>
+                            ` : ''}
+                            ${finding.taint_flow && finding.taint_flow.length > 0 ? `
+                                <div class="mt-2 text-xs">
+                                    <div class="font-semibold mb-1">Taint Flow:</div>
+                                    ${finding.taint_flow.map(step => `<div class="ml-2">➤ ${step}</div>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+                
+                card.innerHTML = `
+                    <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        ${config.icon} ${config.title}
+                        <span class="ml-auto text-sm ${hasIssues ? 'text-red-400' : 'text-green-400'}">
+                            ${hasIssues ? `${findings.length} issue(s)` : '✓ Clean'}
+                        </span>
+                    </h3>
+                    ${findingsHTML || '<p class="text-gray-400">No issues found</p>'}
+                `;
+                
+                container.appendChild(card);
+            });
+            
+            // Check if we can generate an auto-fix
+            checkAutoFix(engines);
+        }
+
+        // Check if auto-fix is available
+        function checkAutoFix(engines) {
+            const autoFixPanel = document.getElementById('autoFixPanel');
+            
+            // Check if governance engine has suggestions
+            const govFindings = engines.governance?.findings || [];
+            const hasFixes = govFindings.some(f => f.suggestion);
+            
+            if (hasFixes) {
+                autoFixPanel.classList.remove('hidden');
+                autoFixPanel.className = 'bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/30 rounded-xl p-6 mb-6';
+                
+                const fixes = govFindings
+                    .filter(f => f.suggestion)
+                    .map(f => `Line ${f.line}: ${f.suggestion}`)
+                    .join('\n');
+                
+                autoFixPanel.innerHTML = `
+                    <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        ✨ Auto-Remediation Available
+                    </h3>
+                    <div class="bg-black/30 rounded-lg p-4 mb-4 font-mono text-sm">
+                        <pre class="text-gray-300 whitespace-pre-wrap">${fixes}</pre>
+                    </div>
+                    <div class="flex gap-4">
+                        <button onclick="applyFix()" 
+                                class="px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 rounded-lg font-semibold transition-all">
+                            ✅ Apply All Fixes
+                        </button>
+                        <button onclick="previewFix()" 
+                                class="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-semibold transition-all">
+                            👁️ Preview Changes
+                        </button>
+                    </div>
+                `;
+            } else {
+                autoFixPanel.classList.add('hidden');
+            }
+        }
+
+        // Apply auto-fix
+        async function applyFix() {
+            if (!currentResults) return;
+            
+            log('🔧 Applying auto-fix...', 'info');
+            
+            const filePath = document.getElementById('filePath').value;
+            
+            // In a real implementation, you'd read the file, apply fixes, and write back
+            // For now, we'll call the backend endpoint
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/apply-fix`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        file_path: filePath,
+                        fixes: currentResults.engines.governance.findings
+                    })
+                });
+                
+                if (response.ok) {
+                    log('✅ Fixes applied successfully!', 'success');
+                    alert('✅ Auto-fix applied!\n\nThe code has been updated. Save and re-scan to verify.');
+                } else {
+                    log('❌ Failed to apply fixes', 'error');
+                    alert('Failed to apply fixes. Check backend logs.');
+                }
+            } catch (error) {
+                log(`❌ Fix error: ${error.message}`, 'error');
+                alert('Error applying fixes: ' + error.message);
+            }
+        }
+
+        // Preview fix
+        function previewFix() {
+            if (!currentResults) return;
+            
+            // Collect ALL fixes from all engines
+            const fixes = [];
+            let fixId = 1;
+            
+            // SAST findings
+            const sastFindings = currentResults.engines.sast?.findings || [];
+            sastFindings.forEach(finding => {
+                fixes.push({
+                    id: fixId++,
+                    line: finding.line,
+                    type: finding.rule || 'Security Issue',
+                    severity: finding.severity || 'HIGH',
+                    oldCode: finding.oldCode || `Issue at line ${finding.line}`,
+                    newCode: finding.newCode || finding.suggestion || 'Fix needed',
+                    message: finding.message,
+                    suggestion: finding.suggestion || finding.message
+                });
+            });
+            
+            // Governance findings
+            const govFindings = currentResults.engines.governance?.findings || [];
+            govFindings.forEach(finding => {
+                fixes.push({
+                    id: fixId++,
+                    line: finding.line,
+                    type: finding.rule || 'Policy Violation',
+                    severity: finding.severity || 'HIGH',
+                    oldCode: finding.oldCode || `Issue at line ${finding.line}`,
+                    newCode: finding.newCode || finding.suggestion || 'Fix needed',
+                    message: finding.message,
+                    suggestion: finding.suggestion || finding.message
+                });
+            });
+            
+            // DAST findings (if fixable)
+            const dastFindings = currentResults.engines.dast?.findings || [];
+            dastFindings.forEach(finding => {
+                if (finding.suggestion) {
+                    fixes.push({
+                        id: fixId++,
+                        line: finding.line || 0,
+                        type: finding.issue || 'Runtime Issue',
+                        severity: finding.severity || 'MEDIUM',
+                        oldCode: finding.oldCode || finding.details,
+                        newCode: finding.newCode || finding.suggestion,
+                        message: finding.details,
+                        suggestion: finding.suggestion || finding.details
+                    });
+                }
+            });
+            
+            // Store fixes in localStorage for preview page
+            localStorage.setItem('pendingFixes', JSON.stringify(fixes));
+            localStorage.setItem('currentFilePath', document.getElementById('filePath').value);
+            
+            // Open preview page in new window
+            window.open('preview.html', '_blank', 'width=1200,height=800');
+        }
+
+        // Handle critical alert
+        function handleCriticalAlert(alertData) {
+            log(`🚨 CRITICAL ALERT: ${alertData.critical_count} critical issues in ${alertData.file_path}`, 'error');
+            
+            // Store alert data
+            localStorage.setItem('criticalAlert', JSON.stringify(alertData));
+            
+            // Open alert page
+            const alertWindow = window.open('critical-alert.html', '_blank', 'width=800,height=600');
+            
+            // Show notification
+            if (Notification.permission === 'granted') {
+                new Notification('🚨 Critical Code Issues Found!', {
+                    body: `${alertData.critical_count} critical issues detected in ${alertData.file_path}`,
+                    icon: '/favicon.ico'
+                });
+            }
+        }
+
+        // Clear logs
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            log('Logs cleared', 'info');
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            log('🚀 Frontend initialized', 'success');
+            testConnection();
+            initWebSocket();
+            
+            // Request notification permission
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+            
+            // Check for auto-scan parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const autoScan = urlParams.get('auto');
+            let scanPath = localStorage.getItem('scanFilePath');
+            
+            if (autoScan === 'true' && scanPath) {
+                // DON'T modify the path - use exactly as stored
+                log(`Auto-scanning: ${scanPath}`, 'info');
+                document.getElementById('filePath').value = scanPath;
+                
+                // Auto-trigger scan after 1 second
+                setTimeout(() => {
+                    triggerScan();
+                    localStorage.removeItem('scanFilePath');
+                }, 1000);
+            }
+        };
+
+        // Handle Enter key in file path input
+        document.getElementById('filePath').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') triggerScan();
+        });
+    </script>
+</body>
+</html>

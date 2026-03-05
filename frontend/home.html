@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Intelligence - Home</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white min-h-screen">
+    <div class="max-w-7xl mx-auto p-6">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-5xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                🛡️ Code Intelligence Agent
+            </h1>
+            <p class="text-gray-400 text-lg">Manage your projects and automated code governance</p>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <button onclick="showCreateProjectModal()" 
+                    class="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 rounded-xl p-6 text-left transition-all shadow-lg hover:shadow-xl">
+                <div class="text-4xl mb-3">➕</div>
+                <h3 class="text-xl font-bold mb-2">Create New Project</h3>
+                <p class="text-sm text-gray-200">Start a new project with code governance</p>
+            </button>
+
+            <button onclick="window.location.href='index.html'" 
+                    class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl p-6 text-left transition-all shadow-lg hover:shadow-xl">
+                <div class="text-4xl mb-3">🔍</div>
+                <h3 class="text-xl font-bold mb-2">Manual Scan</h3>
+                <p class="text-sm text-gray-200">Scan individual files manually</p>
+            </button>
+
+            <button onclick="window.location.href='github.html'" 
+                    class="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 rounded-xl p-6 text-left transition-all shadow-lg hover:shadow-xl">
+                <div class="text-4xl mb-3">🔗</div>
+                <h3 class="text-xl font-bold mb-2">GitHub Integration</h3>
+                <p class="text-sm text-gray-200">Auto-review on push events</p>
+            </button>
+
+            <button onclick="window.location.href='production.html'" 
+                    class="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 rounded-xl p-6 text-left transition-all shadow-lg hover:shadow-xl">
+                <div class="text-4xl mb-3">🚀</div>
+                <h3 class="text-xl font-bold mb-2">Production Deploy</h3>
+                <p class="text-sm text-gray-200">Deploy project to production</p>
+            </button>
+        </div>
+
+        <!-- Projects List -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold">Your Projects</h2>
+                <button onclick="loadProjects()" class="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg text-sm">
+                    🔄 Refresh
+                </button>
+            </div>
+
+            <div id="projectsList" class="space-y-4">
+                <div class="text-center text-gray-400 py-10">Loading projects...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Project Modal -->
+    <div id="createModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-8 max-w-2xl w-full mx-4 border border-white/20">
+            <h2 class="text-2xl font-bold mb-6">Create New Project</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-2">Project Name</label>
+                    <input type="text" id="projectName" placeholder="my-awesome-project" 
+                           class="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:border-blue-400">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-2">Project Path</label>
+                    <input type="text" id="projectPath" placeholder="/path/to/project or C:\projects\myproject" 
+                           class="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:border-blue-400">
+                    <p class="text-xs text-gray-400 mt-1">Absolute path to your project directory</p>
+                </div>
+
+                <div class="flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                    <input type="checkbox" id="createDirectory" class="w-5 h-5">
+                    <label for="createDirectory" class="text-sm">Create directory if it doesn't exist</label>
+                </div>
+            </div>
+
+            <div class="flex gap-4 mt-6">
+                <button onclick="createProject()" 
+                        class="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 rounded-lg font-semibold">
+                    Create Project
+                </button>
+                <button onclick="hideCreateProjectModal()" 
+                        class="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-semibold">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-8 max-w-xl w-full mx-4 border border-white/20">
+            <h2 class="text-2xl font-bold mb-6">Project Settings</h2>
+            <input type="hidden" id="settingsProjectName">
+            
+            <div class="space-y-4">
+                <div class="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="font-semibold">Auto-scan on Save (Ctrl+S)</label>
+                        <input type="checkbox" id="autoScanToggle" class="w-6 h-6">
+                    </div>
+                    <p class="text-sm text-gray-400">Automatically scan files when you save them</p>
+                </div>
+
+                <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                    <p class="text-sm">
+                        <strong>Note:</strong> Auto-scan requires the file monitor to be running.
+                        Start it with: <code class="bg-black/30 px-2 py-1 rounded">python backend/watchdog_monitor.py [path]</code>
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex gap-4 mt-6">
+                <button onclick="saveSettings()" 
+                        class="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-semibold">
+                    Save Settings
+                </button>
+                <button onclick="hideSettingsModal()" 
+                        class="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-semibold">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:8000';
+
+        async function loadProjects() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/projects`);
+                const data = await response.json();
+                
+                const container = document.getElementById('projectsList');
+                
+                if (data.projects && data.projects.length > 0) {
+                    container.innerHTML = data.projects.map(project => `
+                        <div class="bg-white/5 border border-white/20 rounded-lg p-4 hover:bg-white/10 transition-all">
+                            <div class="flex items-center justify-between">
+                                <div class="flex-1">
+                                    <h3 class="text-xl font-bold mb-1">${escapeHtml(project.name)}</h3>
+                                    <p class="text-sm text-gray-400">${escapeHtml(project.path)}</p>
+                                    <div class="flex items-center gap-2 mt-2">
+                                        ${project.auto_scan ? 
+                                            '<span class="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded">Auto-scan: ON</span>' : 
+                                            '<span class="text-xs bg-gray-500/20 text-gray-400 px-2 py-1 rounded">Auto-scan: OFF</span>'
+                                        }
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="openProject('${escapeHtml(project.name)}')" 
+                                            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-semibold">
+                                        Open
+                                    </button>
+                                    <button onclick="showSettings('${escapeHtml(project.name)}', ${project.auto_scan})" 
+                                            class="px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg text-sm">
+                                        ⚙️
+                                    </button>
+                                    <button onclick="deleteProject('${escapeHtml(project.name)}')" 
+                                            class="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-sm">
+                                        🗑️
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="text-center text-gray-400 py-10">
+                            <div class="text-6xl mb-4">📁</div>
+                            <p class="text-lg mb-2">No projects yet</p>
+                            <p class="text-sm">Create your first project to get started</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading projects:', error);
+                showToast('Failed to load projects', 'error');
+            }
+        }
+
+        function showCreateProjectModal() {
+            document.getElementById('createModal').classList.remove('hidden');
+        }
+
+        function hideCreateProjectModal() {
+            document.getElementById('createModal').classList.add('hidden');
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectPath').value = '';
+            document.getElementById('createDirectory').checked = false;
+        }
+
+        async function createProject() {
+            const name = document.getElementById('projectName').value.trim();
+            const path = document.getElementById('projectPath').value.trim();
+            const createDir = document.getElementById('createDirectory').checked;
+
+            if (!name || !path) {
+                showToast('Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/projects`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, path, create_directory: createDir })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showToast(`Project "${name}" created successfully!`, 'success');
+                    hideCreateProjectModal();
+                    loadProjects();
+                } else {
+                    showToast(result.error || 'Failed to create project', 'error');
+                }
+            } catch (error) {
+                showToast('Error creating project: ' + error.message, 'error');
+            }
+        }
+
+        function showSettings(projectName, autoScan) {
+            document.getElementById('settingsProjectName').value = projectName;
+            document.getElementById('autoScanToggle').checked = autoScan;
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function hideSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        async function saveSettings() {
+            const projectName = document.getElementById('settingsProjectName').value;
+            const autoScan = document.getElementById('autoScanToggle').checked;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/projects/${projectName}/settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ auto_scan: autoScan })
+                });
+
+                if (response.ok) {
+                    showToast('Settings saved!', 'success');
+                    hideSettingsModal();
+                    loadProjects();
+                } else {
+                    showToast('Failed to save settings', 'error');
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteProject(name) {
+            if (!confirm(`Delete project "${name}"?\n\nThis only removes it from the list, not the actual files.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/projects/${name}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showToast(`Project "${name}" removed`, 'success');
+                    loadProjects();
+                } else {
+                    showToast('Failed to delete project', 'error');
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+
+        function openProject(name) {
+            localStorage.setItem('currentProject', name);
+            window.location.href = 'production.html';
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            const colors = { success: 'bg-green-500', error: 'bg-red-500', info: 'bg-blue-500' };
+            toast.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-4 rounded-lg shadow-lg z-50`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        window.onload = loadProjects;
+    </script>
+</body>
+</html>

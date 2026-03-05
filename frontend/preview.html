@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview Changes - Code Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white min-h-screen">
+    <div class="max-w-6xl mx-auto p-6">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold mb-2">🔍 Preview Changes</h1>
+                    <p class="text-gray-400">Review and apply fixes individually or all at once</p>
+                </div>
+                <button onclick="window.close()" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg">
+                    ← Back to Dashboard
+                </button>
+            </div>
+            <div class="mt-4 bg-blue-500/20 border border-blue-500/50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="font-semibold" id="totalFixes">0</span> fixes available
+                        <span class="mx-2">•</span>
+                        <span class="text-green-400" id="appliedCount">0</span> applied
+                    </div>
+                    <div class="text-sm text-gray-300" id="fileName">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fix Cards Container -->
+        <div id="fixesContainer" class="space-y-6 mb-8"></div>
+
+        <!-- Bottom Action Bar -->
+        <div class="sticky bottom-0 bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/30 rounded-xl p-6 backdrop-blur-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-xl font-bold mb-1">Ready to apply fixes?</h3>
+                    <p class="text-sm text-gray-300">
+                        <span id="pendingCount">0</span> fixes pending
+                    </p>
+                </div>
+                <div class="flex gap-4">
+                    <button onclick="applyAllSuggestions()" id="applyAllSuggestionsBtn"
+                            class="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-lg font-semibold transition-all">
+                        💡 Add All Suggestions as Comments
+                    </button>
+                    <button onclick="applyAllFixes()" id="applyAllBtn"
+                            class="px-8 py-4 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 rounded-lg font-semibold text-lg transition-all shadow-lg">
+                        ✅ Apply All Fixes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:8000';
+        let fixes = [];
+        let appliedFixes = new Set();
+        let suggestionsAdded = new Set();
+
+        function init() {
+            const storedFixes = localStorage.getItem('pendingFixes');
+            const filePath = localStorage.getItem('currentFilePath');
+            
+            if (filePath) {
+                document.getElementById('fileName').textContent = filePath;
+            }
+            
+            if (storedFixes) {
+                try {
+                    fixes = JSON.parse(storedFixes);
+                    renderFixes();
+                    updateCounts();
+                } catch (e) {
+                    showToast('❌ Error loading fixes', 'error');
+                }
+            }
+        }
+
+        function renderFixes() {
+            const container = document.getElementById('fixesContainer');
+            container.innerHTML = '';
+
+            if (fixes.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-400 py-10">No fixes available</div>';
+                return;
+            }
+
+            fixes.forEach(fix => {
+                const card = createFixCard(fix);
+                container.appendChild(card);
+            });
+        }
+
+        function createFixCard(fix) {
+            const isApplied = appliedFixes.has(fix.id);
+            const hasSuggestion = suggestionsAdded.has(fix.id);
+            const severityColors = {
+                'CRITICAL': { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-300', badge: 'bg-red-500/20' },
+                'HIGH': { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-300', badge: 'bg-orange-500/20' },
+                'MEDIUM': { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', text: 'text-yellow-300', badge: 'bg-yellow-500/20' },
+                'LOW': { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-300', badge: 'bg-blue-500/20' }
+            };
+            const colors = severityColors[fix.severity] || severityColors.MEDIUM;
+
+            const card = document.createElement('div');
+            card.className = `${colors.bg} border ${colors.border} rounded-xl p-6 transition-all ${isApplied ? 'opacity-50' : ''}`;
+            card.id = `fix-${fix.id}`;
+
+            const canAutoFix = fix.canAutoFix !== false;
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <h3 class="text-xl font-bold ${colors.text}">${escapeHtml(fix.type)}</h3>
+                            <span class="text-xs ${colors.badge} px-3 py-1 rounded-full">${fix.severity}</span>
+                            <span class="text-sm text-gray-400">Line ${fix.line}</span>
+                        </div>
+                        <p class="text-sm text-gray-300">${escapeHtml(fix.message || fix.explanation)}</p>
+                    </div>
+                    ${isApplied ? `
+                        <div class="flex items-center gap-2 bg-green-500/20 px-4 py-2 rounded-lg">
+                            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span class="text-green-400 font-semibold">Applied</span>
+                        </div>
+                    ` : hasSuggestion ? `
+                        <div class="flex items-center gap-2 bg-purple-500/20 px-4 py-2 rounded-lg">
+                            <span class="text-purple-400 font-semibold">💡 Suggestion Added</span>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Code Comparison -->
+                <div class="space-y-3 mb-4">
+                    <!-- Old Code (Red) -->
+                    <div class="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-6 h-6 bg-red-500/30 rounded flex items-center justify-center text-xs">−</div>
+                            <span class="text-sm font-semibold text-red-300">Current Code (Issue)</span>
+                        </div>
+                        <pre class="text-sm font-mono text-gray-300 overflow-x-auto"><code>${escapeHtml(fix.oldCode)}</code></pre>
+                    </div>
+
+                    <!-- Suggestion Box (Purple) -->
+                    <div class="bg-purple-900/20 border border-purple-500/30 rounded-lg p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-6 h-6 bg-purple-500/30 rounded flex items-center justify-center text-xs">💡</div>
+                            <span class="text-sm font-semibold text-purple-300">AI Suggestion</span>
+                        </div>
+                        <p class="text-sm text-gray-300">${escapeHtml(fix.suggestion || fix.message)}</p>
+                    </div>
+
+                    <!-- Arrow -->
+                    <div class="flex justify-center">
+                        <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                        </svg>
+                    </div>
+
+                    <!-- New Code (Green) -->
+                    <div class="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-6 h-6 bg-green-500/30 rounded flex items-center justify-center text-xs">+</div>
+                            <span class="text-sm font-semibold text-green-300">Fixed Code (Recommended)</span>
+                        </div>
+                        <pre class="text-sm font-mono text-gray-300 overflow-x-auto"><code>${escapeHtml(fix.newCode)}</code></pre>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex justify-end gap-3">
+                    <button 
+                        onclick="addSuggestionAsComment(${fix.id})" 
+                        id="suggest-btn-${fix.id}"
+                        ${hasSuggestion ? 'disabled' : ''}
+                        class="px-6 py-3 ${hasSuggestion ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'} rounded-lg font-semibold transition-all">
+                        ${hasSuggestion ? '✓ Suggestion Added' : '💡 Add Suggestion as Comment'}
+                    </button>
+                    <button 
+                        onclick="applySingleFix(${fix.id})" 
+                        id="btn-${fix.id}"
+                        ${isApplied ? 'disabled' : ''}
+                        class="px-6 py-3 ${isApplied ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600'} rounded-lg font-semibold transition-all shadow-lg">
+                        ${isApplied ? '✓ Fix Applied' : '🔧 Apply This Fix'}
+                    </button>
+                </div>
+            `;
+
+            return card;
+        }
+
+        async function addSuggestionAsComment(fixId) {
+            const fix = fixes.find(f => f.id === fixId);
+            if (!fix || !fix.suggestion || suggestionsAdded.has(fixId)) return;
+
+            const button = document.getElementById(`suggest-btn-${fixId}`);
+            button.textContent = '⏳ Adding...';
+            button.disabled = true;
+
+            try {
+                const filePath = document.getElementById('fileName').textContent;
+                
+                console.log('Adding suggestion:', {
+                    file_path: filePath,
+                    line: fix.line,
+                    suggestion: fix.suggestion
+                });
+                
+                const response = await fetch(`${BACKEND_URL}/add-suggestion-comment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        file_path: filePath,
+                        line: fix.line,
+                        suggestion: fix.suggestion
+                    })
+                });
+
+                const result = await response.json();
+                console.log('Backend response:', result);
+
+                if (response.ok && result.status === 'success') {
+                    suggestionsAdded.add(fixId);
+                    const card = document.getElementById(`fix-${fixId}`);
+                    const newCard = createFixCard(fix);
+                    card.replaceWith(newCard);
+                    showToast(`💡 Suggestion added as comment at line ${fix.line}`, 'success');
+                } else {
+                    throw new Error(result.message || 'Failed to add suggestion');
+                }
+            } catch (error) {
+                console.error('Error adding suggestion:', error);
+                showToast(`❌ ${error.message}`, 'error');
+                button.textContent = '💡 Add Suggestion as Comment';
+                button.disabled = false;
+            }
+        }
+
+        async function applySingleFix(fixId) {
+            const fix = fixes.find(f => f.id === fixId);
+            if (!fix || appliedFixes.has(fixId) || fix.canAutoFix === false) return;
+
+            const button = document.getElementById(`btn-${fixId}`);
+            button.textContent = '⏳ Applying...';
+            button.disabled = true;
+
+            try {
+                await applyFixToFile(fix);
+                appliedFixes.add(fixId);
+                updateCounts();
+                
+                const card = document.getElementById(`fix-${fixId}`);
+                const newCard = createFixCard(fix);
+                card.replaceWith(newCard);
+                
+                showToast(`✅ Fix applied to line ${fix.line}`, 'success');
+            } catch (error) {
+                showToast(`❌ Failed to apply fix: ${error.message}`, 'error');
+                button.textContent = '🔧 Apply This Fix';
+                button.disabled = false;
+            }
+        }
+
+        async function applyAllSuggestions() {
+            const pendingFixes = fixes.filter(f => !suggestionsAdded.has(f.id) && f.suggestion);
+            
+            if (pendingFixes.length === 0) {
+                showToast('ℹ️ All suggestions already added', 'info');
+                return;
+            }
+
+            const button = document.getElementById('applyAllSuggestionsBtn');
+            button.textContent = '⏳ Adding suggestions...';
+            button.disabled = true;
+
+            try {
+                for (const fix of pendingFixes) {
+                    await addSuggestionAsComment(fix.id);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                showToast('✅ All suggestions added as comments!', 'success');
+            } catch (error) {
+                showToast(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                button.textContent = '💡 Add All Suggestions as Comments';
+                button.disabled = false;
+            }
+        }
+
+        async function applyAllFixes() {
+            const button = document.getElementById('applyAllBtn');
+            const pendingFixes = fixes.filter(f => !appliedFixes.has(f.id) && f.canAutoFix !== false);
+            
+            if (pendingFixes.length === 0) {
+                showToast('ℹ️ All auto-fixable issues already resolved', 'info');
+                return;
+            }
+
+            button.textContent = '⏳ Applying all fixes...';
+            button.disabled = true;
+
+            try {
+                for (const fix of pendingFixes) {
+                    await applyFixToFile(fix);
+                    appliedFixes.add(fix.id);
+                    
+                    const card = document.getElementById(`fix-${fix.id}`);
+                    const newCard = createFixCard(fix);
+                    card.replaceWith(newCard);
+                    
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+
+                updateCounts();
+                showToast('✅ All fixes applied successfully!', 'success');
+                button.textContent = '✓ All Fixes Applied';
+            } catch (error) {
+                showToast(`❌ Error applying fixes: ${error.message}`, 'error');
+                button.textContent = '✅ Apply All Fixes';
+                button.disabled = false;
+            }
+        }
+
+        async function applyFixToFile(fix) {
+            const filePath = document.getElementById('fileName').textContent;
+            
+            const response = await fetch(`${BACKEND_URL}/apply-fix`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    file_path: filePath,
+                    line: fix.line,
+                    old_code: fix.oldCode,
+                    new_code: fix.newCode
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Backend request failed');
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 300));
+            return true;
+        }
+
+        function updateCounts() {
+            const total = fixes.length;
+            const applied = appliedFixes.size;
+            const pending = total - applied;
+
+            document.getElementById('totalFixes').textContent = total;
+            document.getElementById('appliedCount').textContent = applied;
+            document.getElementById('pendingCount').textContent = pending;
+
+            const applyAllBtn = document.getElementById('applyAllBtn');
+            const autoFixable = fixes.filter(f => f.canAutoFix !== false).length;
+            
+            if (applied >= autoFixable) {
+                applyAllBtn.textContent = '✓ All Auto-Fixes Applied';
+                applyAllBtn.disabled = true;
+                applyAllBtn.className = 'px-8 py-4 bg-gray-600 cursor-not-allowed rounded-lg font-semibold text-lg';
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500'
+            };
+            
+            toast.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-4 rounded-lg shadow-lg z-50`;
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
